@@ -1,3 +1,6 @@
+--!optimize 2
+--!native
+
 local Lovarip = {}
 
 -- Services
@@ -16,7 +19,7 @@ local isClient = RunService:IsClient()
 Lovarip.config = {
 	clearEachFrame = true,      -- Auto-clear graphics each frame
 	smoothInput = true,         -- Smooth input handling
-	
+
 	-- Anti-Cheat Configuration
 	antiCheat = {
 		enabled = true,                    -- Master toggle
@@ -85,7 +88,7 @@ local DetectionType = {
 -- Log detection (internal)
 local function logDetection(player, detectionType, details)
 	if not Lovarip.config.antiCheat.logDetections then return end
-	
+
 	local entry = {
 		player = player and player.Name or "Unknown",
 		type = detectionType,
@@ -93,9 +96,9 @@ local function logDetection(player, detectionType, details)
 		time = os.date("%H:%M:%S"),
 		timestamp = tick(),
 	}
-	
+
 	table.insert(acState.detections, entry)
-	
+
 	-- Print to console
 	print(string.format("[Lovarip AC] %s detected for %s: %s", detectionType, entry.player, details))
 end
@@ -103,15 +106,15 @@ end
 -- Issue warning to player
 local function issueWarning(player, detectionType)
 	if not player then return end
-	
+
 	local userId = player.UserId
 	acState.warnings[userId] = (acState.warnings[userId] or 0) + 1
-	
+
 	local warnings = acState.warnings[userId]
 	local threshold = Lovarip.config.antiCheat.warningThreshold
-	
+
 	logDetection(player, detectionType, string.format("Warning %d/%d", warnings, threshold))
-	
+
 	-- Take action if threshold exceeded
 	if warnings >= threshold then
 		if Lovarip.config.antiCheat.kickOnDetection then
@@ -128,69 +131,69 @@ end
 -- CLIENT-SIDE ANTI-CHEAT
 -- ============================================
 if isClient then
-	
+
 	-- Validate local player data before sending to server
 	function Lovarip.antiCheat.validateData(data)
 		if type(data) ~= "table" then return false end
-		
+
 		local config = Lovarip.config.antiCheat
-		
+
 		-- Check score
 		if data.score and (data.score < 0 or data.score > config.maxScore) then
 			return false, "Invalid score"
 		end
-		
+
 		-- Check currency
 		if data.currency and (data.currency < 0 or data.currency > config.maxCurrency) then
 			return false, "Invalid currency"
 		end
-		
+
 		-- Check health
 		if data.health and (data.health < 0 or data.health > config.maxHealth) then
 			return false, "Invalid health"
 		end
-		
+
 		-- Check position (basic bounds)
 		if data.position then
 			if math.abs(data.position.X) > 10000 or 
-			   math.abs(data.position.Y) > 10000 or 
-			   math.abs(data.position.Z) > 10000 then
+				math.abs(data.position.Y) > 10000 or 
+				math.abs(data.position.Z) > 10000 then
 				return false, "Position out of bounds"
 			end
 		end
-		
+
 		return true
 	end
-	
+
 	-- Check for time manipulation
 	local lastRealTime = tick()
 	local lastGameTime = os.clock()
-	
+
 	function Lovarip.antiCheat.checkTimeManipulation()
 		local currentRealTime = tick()
 		local currentGameTime = os.clock()
-		
+
 		local realDelta = currentRealTime - lastRealTime
 		local gameDelta = currentGameTime - lastGameTime
-		
+
 		lastRealTime = currentRealTime
 		lastGameTime = currentGameTime
-		
+
 		-- If game time is significantly faster than real time
 		if gameDelta > realDelta * Lovarip.config.antiCheat.speedHackThreshold then
 			return true, "Time acceleration detected"
 		end
-		
+
 		return false
 	end
-	
+
 	-- Monitor character properties
 	function Lovarip.antiCheat.monitorCharacter(character)
 		if not character then return end
-		
+
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		
+
 		if humanoid then
 			-- Detect walk speed changes
 			humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
@@ -199,7 +202,7 @@ if isClient then
 					logDetection(Players.LocalPlayer, DetectionType.SPEED_HACK, "WalkSpeed reset")
 				end
 			end)
-			
+
 			-- Detect jump power changes
 			humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
 				if humanoid.JumpPower > Lovarip.config.antiCheat.maxJumpPower then
@@ -207,7 +210,7 @@ if isClient then
 					logDetection(Players.LocalPlayer, DetectionType.SPEED_HACK, "JumpPower reset")
 				end
 			end)
-			
+
 			-- Detect god mode attempts
 			if Lovarip.config.antiCheat.godModeDetection then
 				humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(function()
@@ -216,7 +219,7 @@ if isClient then
 						logDetection(Players.LocalPlayer, DetectionType.GOD_MODE, "MaxHealth reset")
 					end
 				end)
-				
+
 				humanoid:GetPropertyChangedSignal("Health"):Connect(function()
 					if humanoid.Health > humanoid.MaxHealth then
 						humanoid.Health = humanoid.MaxHealth
@@ -225,7 +228,7 @@ if isClient then
 				end)
 			end
 		end
-		
+
 		-- Monitor for noclip
 		if rootPart and Lovarip.config.antiCheat.noclipDetection then
 			rootPart:GetPropertyChangedSignal("CanCollide"):Connect(function()
@@ -234,7 +237,7 @@ if isClient then
 					logDetection(Players.LocalPlayer, DetectionType.NOCLIP, "CanCollide reset")
 				end
 			end)
-			
+
 			rootPart:GetPropertyChangedSignal("Transparency"):Connect(function()
 				if rootPart.Transparency > 0.5 then
 					rootPart.Transparency = 0
@@ -243,12 +246,12 @@ if isClient then
 			end)
 		end
 	end
-	
+
 	-- Rate limit remote calls
 	function Lovarip.antiCheat.canCallRemote(remoteName)
 		local now = tick()
 		local calls = acState.remoteCalls[remoteName] or {}
-		
+
 		-- Remove old calls
 		local recentCalls = {}
 		for _, time in ipairs(calls) do
@@ -256,33 +259,33 @@ if isClient then
 				table.insert(recentCalls, time)
 			end
 		end
-		
+
 		-- Check rate limit
 		if #recentCalls >= Lovarip.config.antiCheat.remoteRateLimit then
 			return false
 		end
-		
+
 		-- Record this call
 		table.insert(recentCalls, now)
 		acState.remoteCalls[remoteName] = recentCalls
-		
+
 		return true
 	end
-	
+
 	-- Initialize client-side anti-cheat
 	function Lovarip.antiCheat.initClient()
 		local player = Players.LocalPlayer
-		
+
 		-- Monitor character when it spawns
 		player.CharacterAdded:Connect(function(character)
 			Lovarip.antiCheat.monitorCharacter(character)
 		end)
-		
+
 		-- Monitor existing character
 		if player.Character then
 			Lovarip.antiCheat.monitorCharacter(player.Character)
 		end
-		
+
 		-- Periodic time check
 		task.spawn(function()
 			while isRunning do
@@ -292,7 +295,7 @@ if isClient then
 				end
 				task.wait(1)
 			end
-			end)
+		end)
 	end
 end
 
@@ -300,31 +303,31 @@ end
 -- SERVER-SIDE ANTI-CHEAT
 -- ============================================
 if isServer then
-	
+
 	-- Validate player position
 	function Lovarip.antiCheat.validatePosition(player, newPosition)
 		if not player or not newPosition then return false end
-		
+
 		local userId = player.UserId
 		local now = tick()
 		local config = Lovarip.config.antiCheat
-		
+
 		-- Get last position
 		local lastPos = acState.lastPositions[userId]
 		local lastTime = acState.lastUpdate[userId] or now
-		
+
 		if lastPos then
 			local delta = now - lastTime
 			local distance = (newPosition - lastPos).Magnitude
 			local speed = distance / math.max(delta, 0.001)
-			
+
 			-- Check for teleportation/speed hack
 			if speed > config.maxPositionDelta then
 				logDetection(player, DetectionType.POSITION_MANIPULATION, 
 					string.format("Speed: %.1f studs/s (max: %d)", speed, config.maxPositionDelta))
 				return false
 			end
-			
+
 			-- Check for flying (if enabled)
 			if config.flyDetection and player.Character then
 				local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
@@ -338,45 +341,45 @@ if isServer then
 				end
 			end
 		end
-		
+
 		-- Update tracking
 		acState.lastPositions[userId] = newPosition
 		acState.lastUpdate[userId] = now
-		
+
 		return true
 	end
-	
+
 	-- Validate health changes
 	function Lovarip.antiCheat.validateHealth(player, newHealth)
 		if not player then return false end
-		
+
 		local userId = player.UserId
 		local config = Lovarip.config.antiCheat
-		
+
 		-- Check bounds
 		if newHealth < 0 or newHealth > config.maxHealth then
 			logDetection(player, DetectionType.HEALTH_MANIPULATION, 
 				string.format("Health: %.1f (max: %d)", newHealth, config.maxHealth))
 			return false
 		end
-		
+
 		-- Check for health increase without reason (god mode)
 		local lastHealth = acState.lastHealth[userId]
 		if lastHealth and newHealth > lastHealth then
 			-- Could add healing item validation here
 			-- For now, just track the change
 		end
-		
+
 		acState.lastHealth[userId] = newHealth
 		return true
 	end
-	
+
 	-- Validate game data (score, currency, etc.)
 	function Lovarip.antiCheat.validateGameData(player, data)
 		if not player or type(data) ~= "table" then return false end
-		
+
 		local config = Lovarip.config.antiCheat
-		
+
 		-- Validate score
 		if data.score then
 			if data.score < 0 or data.score > config.maxScore then
@@ -384,7 +387,7 @@ if isServer then
 				return false
 			end
 		end
-		
+
 		-- Validate currency
 		if data.currency then
 			if data.currency < 0 or data.currency > config.maxCurrency then
@@ -392,7 +395,7 @@ if isServer then
 				return false
 			end
 		end
-		
+
 		-- Validate any numeric values
 		for key, value in pairs(data) do
 			if type(value) == "number" then
@@ -406,18 +409,18 @@ if isServer then
 				end
 			end
 		end
-		
+
 		return true
 	end
-	
+
 	-- Rate limit remote calls from player
 	function Lovarip.antiCheat.rateLimitRemote(player, remoteName)
 		local userId = player.UserId
 		local now = tick()
 		local key = userId .. "_" .. remoteName
-		
+
 		local calls = acState.remoteCalls[key] or {}
-		
+
 		-- Remove old calls
 		local recentCalls = {}
 		for _, time in ipairs(calls) do
@@ -425,28 +428,28 @@ if isServer then
 				table.insert(recentCalls, time)
 			end
 		end
-		
+
 		-- Check rate limit
 		if #recentCalls >= Lovarip.config.antiCheat.remoteRateLimit then
 			logDetection(player, DetectionType.REMOTE_SPAM, remoteName)
 			issueWarning(player, DetectionType.REMOTE_SPAM)
 			return false
 		end
-		
+
 		-- Record this call
 		table.insert(recentCalls, now)
 		acState.remoteCalls[key] = recentCalls
-		
+
 		return true
 	end
-	
+
 	-- Monitor player character on server
 	local function monitorPlayerCharacter(player, character)
 		if not character then return end
-		
+
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		
+
 		if humanoid then
 			-- Monitor WalkSpeed
 			humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
@@ -456,7 +459,7 @@ if isServer then
 					issueWarning(player, DetectionType.SPEED_HACK)
 				end
 			end)
-			
+
 			-- Monitor JumpPower
 			humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
 				if humanoid.JumpPower > Lovarip.config.antiCheat.maxJumpPower then
@@ -465,7 +468,7 @@ if isServer then
 					issueWarning(player, DetectionType.SPEED_HACK)
 				end
 			end)
-			
+
 			-- Monitor health for god mode
 			if Lovarip.config.antiCheat.godModeDetection then
 				humanoid:GetPropertyChangedSignal("Health"):Connect(function()
@@ -477,7 +480,7 @@ if isServer then
 				end)
 			end
 		end
-		
+
 		-- Track position for fly/teleport detection
 		if rootPart then
 			task.spawn(function()
@@ -488,7 +491,7 @@ if isServer then
 			end)
 		end
 	end
-	
+
 	-- Initialize server-side anti-cheat
 	function Lovarip.antiCheat.initServer()
 		-- Monitor all players
@@ -496,20 +499,20 @@ if isServer then
 			player.CharacterAdded:Connect(function(character)
 				monitorPlayerCharacter(player, character)
 			end)
-			
+
 			if player.Character then
 				monitorPlayerCharacter(player, player.Character)
 			end
 		end
-		
+
 		-- Handle existing players
 		for _, player in ipairs(Players:GetPlayers()) do
 			onPlayerAdded(player)
 		end
-		
+
 		-- Handle new players
 		Players.PlayerAdded:Connect(onPlayerAdded)
-		
+
 		-- Clean up when players leave
 		Players.PlayerRemoving:Connect(function(player)
 			local userId = player.UserId
@@ -518,7 +521,7 @@ if isServer then
 			acState.lastHealth[userId] = nil
 			acState.lastUpdate[userId] = nil
 			acState.playerData[userId] = nil
-			
+
 			-- Clean up remote call tracking
 			for key, _ in pairs(acState.remoteCalls) do
 				if key:sub(1, #tostring(userId)) == tostring(userId) then
@@ -526,25 +529,25 @@ if isServer then
 				end
 			end
 		end)
-		
+
 		print("[Lovarip] Anti-Cheat initialized on server")
 	end
-	
+
 	-- Get detection log
 	function Lovarip.antiCheat.getDetections()
 		return acState.detections
 	end
-	
+
 	-- Clear detection log
 	function Lovarip.antiCheat.clearDetections()
 		acState.detections = {}
 	end
-	
+
 	-- Get player warnings
 	function Lovarip.antiCheat.getWarnings(player)
 		return acState.warnings[player.UserId] or 0
 	end
-	
+
 	-- Reset player warnings
 	function Lovarip.antiCheat.resetWarnings(player)
 		acState.warnings[player.UserId] = 0
@@ -587,13 +590,13 @@ function Lovarip.antiCheat.init()
 	if not Lovarip.config.antiCheat.enabled then
 		return false
 	end
-	
+
 	if isServer then
 		Lovarip.antiCheat.initServer()
 	elseif isClient then
 		Lovarip.antiCheat.initClient()
 	end
-	
+
 	return true
 end
 
@@ -632,12 +635,12 @@ Lovarip.graphics = {}
 local function getObject(className)
 	poolIndex = poolIndex + 1
 	local obj = objectPool[poolIndex]
-	
+
 	if not obj or obj.ClassName ~= className then
 		obj = Instance.new(className)
 		objectPool[poolIndex] = obj
 	end
-	
+
 	obj.Parent = canvas
 	return obj
 end
@@ -657,13 +660,16 @@ function Lovarip.graphics.rect(x, y, w, h, color, radius)
 	frame.BackgroundColor3 = color or Lovarip.colors.white
 	frame.BorderSizePixel = 0
 	frame.BackgroundTransparency = 0
-	
+
 	if radius and radius > 0 then
 		local corner = frame:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0, radius)
 		corner.Parent = frame
+	else
+		local corner = frame:FindFirstChildOfClass("UICorner")
+		if corner then corner:Destroy() end
 	end
-	
+
 	table.insert(objects, frame)
 	return frame
 end
@@ -678,7 +684,10 @@ function Lovarip.graphics.rectOutline(x, y, w, h, color, thickness)
 	frame.BackgroundTransparency = 1
 	frame.BorderSizePixel = thickness or 2
 	frame.BorderColor3 = color or Lovarip.colors.white
-	
+
+	local corner = frame:FindFirstChildOfClass("UICorner")
+	if corner then corner:Destroy() end
+
 	table.insert(objects, frame)
 	return frame
 end
@@ -691,11 +700,12 @@ function Lovarip.graphics.circle(x, y, radius, color)
 	frame.Position = UDim2.fromOffset(x - radius, y - radius)
 	frame.BackgroundColor3 = color or Lovarip.colors.white
 	frame.BorderSizePixel = 0
-	
+	frame.BackgroundTransparency = 0
+
 	local corner = frame:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(1, 0)
 	corner.Parent = frame
-	
+
 	table.insert(objects, frame)
 	return frame
 end
@@ -713,7 +723,7 @@ function Lovarip.graphics.print(text, x, y, size, color)
 	label.Font = Enum.Font.SourceSans
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.TextYAlignment = Enum.TextYAlignment.Top
-	
+
 	table.insert(objects, label)
 	return label
 end
@@ -731,7 +741,7 @@ function Lovarip.graphics.printCentered(text, x, y, size, color)
 	label.Font = Enum.Font.SourceSans
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
-	
+
 	table.insert(objects, label)
 	return label
 end
@@ -744,7 +754,7 @@ function Lovarip.graphics.image(assetId, x, y, w, h)
 	img.Position = UDim2.fromOffset(x, y)
 	img.BackgroundTransparency = 1
 	img.Image = type(assetId) == "number" and "rbxassetid://" .. assetId or assetId
-	
+
 	table.insert(objects, img)
 	return img
 end
@@ -753,12 +763,16 @@ end
 function Lovarip.graphics.line(x1, y1, x2, y2, color, thickness)
 	thickness = thickness or 2
 	local isHorizontal = math.abs(x2 - x1) > math.abs(y2 - y1)
-	
+
 	local frame = getObject("Frame")
 	frame.Name = "line"
 	frame.BackgroundColor3 = color or Lovarip.colors.white
 	frame.BorderSizePixel = 0
-	
+	frame.BackgroundTransparency = 0
+
+	local corner = frame:FindFirstChildOfClass("UICorner")
+	if corner then corner:Destroy() end
+
 	if isHorizontal then
 		frame.Size = UDim2.fromOffset(math.abs(x2 - x1), thickness)
 		frame.Position = UDim2.fromOffset(math.min(x1, x2), y1 - thickness/2)
@@ -766,7 +780,7 @@ function Lovarip.graphics.line(x1, y1, x2, y2, color, thickness)
 		frame.Size = UDim2.fromOffset(thickness, math.abs(y2 - y1))
 		frame.Position = UDim2.fromOffset(x1 - thickness/2, math.min(y1, y2))
 	end
-	
+
 	table.insert(objects, frame)
 	return frame
 end
@@ -918,7 +932,7 @@ function Lovarip.init(parent)
 	screenGui.ResetOnSpawn = false
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.IgnoreGuiInset = true
-	
+
 	-- Create canvas
 	canvas = Instance.new("Frame")
 	canvas.Name = "Canvas"
@@ -927,13 +941,13 @@ function Lovarip.init(parent)
 	canvas.BackgroundColor3 = Color3.new(0.1, 0.1, 0.12)
 	canvas.BorderSizePixel = 0
 	canvas.Parent = screenGui
-	
+
 	screenGui.Parent = parent or game.Players.LocalPlayer:WaitForChild("PlayerGui")
-	
+
 	-- Input handlers
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then return end
-		
+
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			keysDown[input.KeyCode.Name] = true
 			if callbacks.keypressed then
@@ -950,10 +964,10 @@ function Lovarip.init(parent)
 			if callbacks.mousepressed then callbacks.mousepressed(mousePos.X, mousePos.Y, 3) end
 		end
 	end)
-	
+
 	UserInputService.InputEnded:Connect(function(input, processed)
 		if processed then return end
-		
+
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			keysDown[input.KeyCode.Name] = false
 			if callbacks.keyreleased then callbacks.keyreleased(input.KeyCode.Name) end
@@ -968,38 +982,38 @@ function Lovarip.init(parent)
 			if callbacks.mousereleased then callbacks.mousereleased(mousePos.X, mousePos.Y, 3) end
 		end
 	end)
-	
+
 	UserInputService.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			mousePos = Vector2.new(input.Position.X, input.Position.Y)
 			if callbacks.mousemoved then callbacks.mousemoved(mousePos.X, mousePos.Y) end
 		end
 	end)
-	
+
 	-- Call load callback
 	if callbacks.load then callbacks.load() end
-	
+
 	-- Game loop
 	isRunning = true
 	local lastTime = tick()
-	
+
 	RunService.RenderStepped:Connect(function()
 		if not isRunning then return end
-		
+
 		local currentTime = tick()
 		deltaTime = currentTime - lastTime
 		lastTime = currentTime
-		
+
 		if Lovarip.config.clearEachFrame then
 			Lovarip.graphics.clear()
 		end
-		
+
 		if callbacks.update then callbacks.update(deltaTime) end
 		if callbacks.draw then callbacks.draw() end
-		
+
 		poolIndex = 0 -- Reset pool index for next frame
 	end)
-	
+
 	return screenGui
 end
 
